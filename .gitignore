@@ -30,6 +30,7 @@ gdm.conf-custom
 gdm-display-glue.h
 gdm-factory-slave-glue.h
 gdm-local-display-factory-glue.h
+gdm-local-display-factory-glue.c
 gdm-manager-glue.h
 gdm.pot
 gdm-product-display-glue.h
