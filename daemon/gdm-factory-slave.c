@@ -411,7 +411,7 @@ create_product_display (GdmFactorySlave *slave)
         g_debug ("GdmFactorySlave: Connecting to local display factory");
         slave->priv->factory_proxy = GDM_DBUS_LOCAL_DISPLAY_FACTORY (
                 gdm_dbus_local_display_factory_proxy_new_sync (slave->priv->connection,
-                                                            G_DBUS_PROXY_FLAGS_NONE,
+                                                            G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
                                                             GDM_DBUS_NAME,
                                                             GDM_DBUS_LOCAL_DISPLAY_FACTORY_PATH,
                                                             NULL, &error));

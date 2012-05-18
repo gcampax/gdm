@@ -2500,7 +2500,7 @@ gdm_session_worker_constructor (GType                  type,
         }
 
         worker->priv->session_proxy = GDM_DBUS_SESSION (gdm_dbus_session_proxy_new_sync (worker->priv->connection,
-                                                                                         G_DBUS_PROXY_FLAGS_NONE,
+                                                                                         G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
                                                                                          NULL, /* dbus name */
                                                                                          GDM_SESSION_DBUS_PATH,
                                                                                          NULL, &error));

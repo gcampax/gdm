@@ -825,7 +825,7 @@ connect_to_session_relay (GdmProductSlave *slave)
         }
 
         slave->priv->session_relay = GDM_DBUS_SESSION (gdm_dbus_session_proxy_new_sync (slave->priv->session_connection,
-                                                                                        G_DBUS_PROXY_FLAGS_NONE,
+                                                                                        G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
                                                                                         NULL, /* dbus name */
                                                                                         "/org/gnome/DisplayManager/Session",
                                                                                         NULL, &error));
@@ -897,7 +897,7 @@ gdm_product_slave_start (GdmSlave *slave)
         error = NULL;
         self->priv->product_display = GDM_DBUS_PRODUCT_DISPLAY (
                 gdm_dbus_product_display_proxy_new_sync (self->priv->connection,
-                                                         G_DBUS_PROXY_FLAGS_NONE,
+                                                         G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
                                                          GDM_DBUS_NAME,
                                                          display_id,
                                                          NULL, &error));

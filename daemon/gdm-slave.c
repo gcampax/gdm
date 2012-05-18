@@ -769,7 +769,7 @@ gdm_slave_real_start (GdmSlave *slave)
         g_debug ("GdmSlave: Creating proxy for %s", slave->priv->display_id);
         error = NULL;
         slave->priv->display_proxy = GDM_DBUS_DISPLAY (gdm_dbus_display_proxy_new_sync (slave->priv->connection,
-                                                                                        G_DBUS_PROXY_FLAGS_NONE,
+                                                                                        G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
                                                                                         GDM_DBUS_NAME,
                                                                                         slave->priv->display_id,
                                                                                         NULL, &error));
