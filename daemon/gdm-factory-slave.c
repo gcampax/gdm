@@ -638,7 +638,7 @@ run_greeter (GdmFactorySlave *slave)
                           "cancelled",
                           G_CALLBACK (on_greeter_cancel),
                           slave);
-        gdm_greeter_server_start (slave->priv->greeter_server);
+        gdm_greeter_server_start (slave->priv->greeter_server, FALSE);
 
         address = gdm_greeter_server_get_address (slave->priv->greeter_server);
 

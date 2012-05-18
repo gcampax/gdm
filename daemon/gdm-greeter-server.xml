@@ -33,8 +33,6 @@
     </method>
     <method name="Cancel">
     </method>
-    <method name="Disconnect">
-    </method>
     <method name="GetDisplayId">
       <arg name="id" direction="out" type="o"/>
     </method>
@@ -78,9 +76,6 @@
       <arg name="service_name" type="s"/>
     </signal>
     <signal name="Reset">
-    </signal>
-    <signal name="AuthenticationFailed">
-      <arg name="service_name" type="s"/>
     </signal>
     <signal name="SessionOpened">
       <arg name="service_name" type="s"/>

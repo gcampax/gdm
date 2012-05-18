@@ -75,7 +75,8 @@ typedef struct
 GType               gdm_greeter_server_get_type              (void);
 GdmGreeterServer *  gdm_greeter_server_new                   (const char       *display_id);
 
-gboolean            gdm_greeter_server_start                 (GdmGreeterServer *greeter_server);
+gboolean            gdm_greeter_server_start                 (GdmGreeterServer *greeter_server,
+                                                              gboolean          allow_any_user);
 gboolean            gdm_greeter_server_stop                  (GdmGreeterServer *greeter_server);
 char *              gdm_greeter_server_get_address           (GdmGreeterServer *greeter_server);
 
@@ -91,8 +92,6 @@ gboolean            gdm_greeter_server_info                  (GdmGreeterServer *
 gboolean            gdm_greeter_server_problem               (GdmGreeterServer *greeter_server,
                                                               const char       *service_name,
                                                               const char       *text);
-gboolean            gdm_greeter_server_authentication_failed (GdmGreeterServer *greeter_server,
-                                                              const char       *service_name);
 gboolean            gdm_greeter_server_service_unavailable   (GdmGreeterServer *greeter_server,
                                                               const char       *service_name);
 gboolean            gdm_greeter_server_reset                 (GdmGreeterServer *greeter_server);

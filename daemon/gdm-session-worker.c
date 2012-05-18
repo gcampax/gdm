@@ -98,10 +98,7 @@ enum {
         GDM_SESSION_WORKER_STATE_ACCREDITED,
         GDM_SESSION_WORKER_STATE_ACCOUNT_DETAILS_SAVED,
         GDM_SESSION_WORKER_STATE_SESSION_OPENED,
-        GDM_SESSION_WORKER_STATE_SESSION_STARTED,
-        GDM_SESSION_WORKER_STATE_REAUTHENTICATED,
-        GDM_SESSION_WORKER_STATE_REAUTHORIZED,
-        GDM_SESSION_WORKER_STATE_REACCREDITED,
+        GDM_SESSION_WORKER_STATE_SESSION_STARTED
 };
 
 struct GdmSessionWorkerPrivate
@@ -128,6 +125,7 @@ struct GdmSessionWorkerPrivate
         char             *username;
         char             *log_file;
         char             *session_type;
+        char             *session_id;
         uid_t             uid;
         gid_t             gid;
         gboolean          password_is_required;
@@ -1750,6 +1748,7 @@ gdm_session_worker_open_session (GdmSessionWorker  *worker,
 {
         int error_code;
         int flags;
+        const char *session_id;
 
         g_assert (worker->priv->state == GDM_SESSION_WORKER_STATE_ACCOUNT_DETAILS_SAVED);
         g_assert (geteuid () == 0);
@@ -1772,6 +1771,12 @@ gdm_session_worker_open_session (GdmSessionWorker  *worker,
 
         g_debug ("GdmSessionWorker: state SESSION_OPENED");
         worker->priv->state = GDM_SESSION_WORKER_STATE_SESSION_OPENED;
+
+        session_id = pam_getenv (worker->priv->pam_handle, "XDG_SESSION_ID");
+        if (session_id) {
+                g_free (worker->priv->session_id);
+                worker->priv->session_id = g_strdup (session_id);
+        }
 
  out:
         if (error_code != PAM_SUCCESS) {
@@ -2147,6 +2152,8 @@ do_start_session (GdmSessionWorker *worker)
 
         gdm_dbus_session_call_session_started_sync (worker->priv->session_proxy,
                                                     worker->priv->service,
+                                                    worker->priv->session_id ?
+                                                    worker->priv->session_id : "",
                                                     worker->priv->child_pid,
                                                     NULL, NULL);
 }
@@ -2409,6 +2416,21 @@ on_establish_credentials (GdmDBusSession   *session,
                 return;
         }
 
+        worker->priv->cred_flags = PAM_ESTABLISH_CRED;
+        queue_state_change (worker);
+}
+
+static void
+on_refresh_credentials (GdmDBusSession   *session,
+                        const char       *service_name,
+                        GdmSessionWorker *worker)
+{
+        if (worker->priv->state != GDM_SESSION_WORKER_STATE_AUTHORIZED) {
+                g_debug ("GdmSessionWorker: ignoring spurious refresh credentials for user while in state %s", get_state_name (worker->priv->state));
+                return;
+        }
+
+        worker->priv->cred_flags = PAM_REFRESH_CRED;
         queue_state_change (worker);
 }
 
@@ -2423,54 +2445,6 @@ on_open_session (GdmDBusSession   *session,
         }
 
         queue_state_change (worker);
-}
-
-#if 0
-static void
-on_reauthenticate (GdmDBusSession   *session,
-                   const char       *service_name,
-                   GdmSessionWorker *worker)
-{
-        if (worker->priv->state != GDM_SESSION_WORKER_STATE_SESSION_STARTED) {
-                g_debug ("GdmSessionWorker: ignoring spurious reauthenticate for user while in state %s", get_state_name (worker->priv->state));
-                return;
-        }
-
-        queue_state_change (worker);
-}
-
-static void
-on_reauthorize (GdmDBusSession   *session,
-                const char       *service_name,
-                GdmSessionWorker *worker)
-{
-        if (worker->priv->state != GDM_SESSION_WORKER_STATE_REAUTHENTICATED) {
-                g_debug ("GdmSessionWorker: ignoring spurious reauthorize for user while in state %s", get_state_name (worker->priv->state));
-                return;
-        }
-
-        queue_state_change (worker);
-}
-#endif
-
-static void
-on_refresh_credentials (GdmDBusSession   *session,
-                        const char       *service_name,
-                        GdmSessionWorker *worker)
-{
-        int error_code;
-
-        if (worker->priv->state != GDM_SESSION_WORKER_STATE_REAUTHORIZED) {
-                g_debug ("GdmSessionWorker: ignoring spurious refreshing credentials for user while in state %s", get_state_name (worker->priv->state));
-                return;
-        }
-
-        g_debug ("GdmSessionWorker: refreshing credentials");
-
-        error_code = pam_setcred (worker->priv->pam_handle, PAM_REFRESH_CRED);
-        if (error_code != PAM_SUCCESS) {
-                g_debug ("GdmSessionWorker: %s", pam_strerror (worker->priv->pam_handle, error_code));
-        }
 }
 
 static GObject *

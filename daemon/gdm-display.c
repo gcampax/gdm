@@ -33,6 +33,11 @@
 #include <glib/gi18n.h>
 #include <glib-object.h>
 
+#ifdef WITH_SYSTEMD
+#include <systemd/sd-daemon.h>
+#include <systemd/sd-login.h>
+#endif
+
 #include "gdm-display.h"
 #include "gdm-display-glue.h"
 #include "gdm-display-access-file.h"
@@ -41,11 +46,12 @@
 #include "gdm-settings-keys.h"
 
 #include "gdm-slave-proxy.h"
-
-static guint32 display_serial = 1;
+#include "gdm-slave-glue.h"
+#include "gdm-dbus-util.h"
 
 #define GDM_DISPLAY_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), GDM_TYPE_DISPLAY, GdmDisplayPrivate))
 
+#define GDM_SLAVE_PATH "/org/gnome/DisplayManager/Slave"
 #define DEFAULT_SLAVE_COMMAND LIBEXECDIR "/gdm-simple-slave"
 
 struct GdmDisplayPrivate
@@ -70,6 +76,7 @@ struct GdmDisplayPrivate
 
         GdmSlaveProxy        *slave_proxy;
         char                 *slave_bus_name;
+        GdmDBusSlave         *slave_bus_proxy;
         int                   slave_name_id;
         GDBusConnection      *connection;
         GdmDisplayAccessFile *user_access_file;
@@ -108,20 +115,6 @@ gdm_display_error_quark (void)
         }
 
         return ret;
-}
-
-static guint32
-get_next_display_serial (void)
-{
-        guint32 serial;
-
-        serial = display_serial++;
-
-        if ((gint32)display_serial < 0) {
-                display_serial = 1;
-        }
-
-        return serial;
 }
 
 time_t
@@ -307,6 +300,14 @@ gdm_display_real_set_slave_bus_name (GdmDisplay *display,
                                         on_name_vanished,
                                         g_object_ref (display),
                                         NULL);
+
+        g_clear_object (&display->priv->slave_bus_proxy);
+        display->priv->slave_bus_proxy = GDM_DBUS_SLAVE (gdm_dbus_slave_proxy_new_sync (display->priv->connection,
+                                                                                        G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
+                                                                                        name,
+                                                                                        GDM_SLAVE_PATH,
+                                                                                        NULL, NULL));
+
         return TRUE;
 }
 
@@ -1175,7 +1176,134 @@ handle_remove_user_authorization (GdmDBusDisplay        *skeleton,
         return TRUE;
 }
 
+#ifdef WITH_SYSTEMD
+static char *
+get_session_id_for_pid_systemd (pid_t    pid,
+                                GError **error)
+{
+        char *session, *gsession;
+        int rval;
 
+        rval = sd_pid_get_session (pid, &session);
+        if (rval < 0)
+                g_set_error (error, GDM_DISPLAY_ERROR, GDM_DISPLAY_ERROR_GETTING_SESSION_INFO,
+                             "Error getting session id from systemd: %s", g_strerror (-rval));
+
+        if (session) {
+                gsession = g_strdup (session);
+                free (session);
+
+                return gsession;
+        } else {
+                return NULL;
+        }
+}
+#endif
+
+#ifdef WITH_CONSOLEKIT
+static char *
+get_session_id_for_pid_consolekit (GDBusConnection  *connection,
+                                   pid_t             pid,
+                                   GError          **error)
+{
+        GVariant *reply;
+        char *retval;
+
+        reply = g_dbus_connection_call_sync (connection,
+                                             "org.freedesktop.ConsoleKit",
+                                             "/org/freedesktop/ConsoleKit/Manager",
+                                             "org.freedesktop.ConsoleKit.Manager",
+                                             "GetSessionForUnixProcess",
+                                             g_variant_new ("(u)", pid),
+                                             (const GVariantType*) "(o)",
+                                             G_DBUS_CALL_FLAGS_NONE,
+                                             -1,
+                                             NULL, error);
+        if (!reply)
+                return NULL;
+
+        g_variant_get (reply, "(o)", &retval);
+        g_variant_unref (reply);
+
+        return retval;
+}
+#endif
+
+static char *
+get_session_id_for_pid (GdmDisplay  *display,
+                        pid_t        pid,
+                        GError     **error)
+{
+#ifdef WITH_SYSTEMD
+        if (sd_booted () > 0)
+                return get_session_id_for_pid_systemd (pid, error);
+#endif
+
+#ifdef WITH_CONSOLEKIT
+        return get_session_id_for_pid_consolekit (display->priv->connection,
+                                                  pid, error);
+#endif
+
+        return NULL;
+}
+
+static gboolean
+handle_connect_to_slave (GdmDBusDisplay        *skeleton,
+                         GDBusMethodInvocation *invocation,
+                         GdmDisplay            *display)
+{
+        GError *error;
+        const char *sender;
+        pid_t pid;
+        char *session_id;
+        char *address;
+        gboolean ok;
+
+        if (display->priv->slave_bus_proxy == NULL) {
+                g_dbus_method_invocation_return_dbus_error (invocation,
+                                                            "org.gnome.DisplayManager.NotReady",
+                                                            "Slave is not yet registered");
+                return TRUE;
+        }
+
+        error = NULL;
+        sender = g_dbus_method_invocation_get_sender (invocation);
+        if (!gdm_dbus_get_pid_for_name (sender,
+                                        &pid,
+                                        &error)) {
+                g_prefix_error (&error, "Error while retrieving caller session id: ");
+                g_dbus_method_invocation_return_gerror (invocation, error);
+                g_error_free (error);
+
+                return TRUE;
+        }
+
+        session_id = get_session_id_for_pid (display,
+                                             pid,
+                                             &error);
+        if (!session_id) {
+                g_dbus_method_invocation_return_gerror (invocation, error);
+                g_error_free (error);
+                return TRUE;
+        }
+
+        address = NULL;
+        ok = gdm_dbus_slave_call_get_private_connection_sync (display->priv->slave_bus_proxy,
+                                                              session_id,
+                                                              &address,
+                                                              NULL, &error);
+        if (!ok) {
+                g_dbus_method_invocation_return_gerror (invocation, error);
+                g_error_free (error);
+        } else {
+                gdm_dbus_display_complete_connect_to_slave (skeleton, invocation, address);
+        }
+
+        g_free (address);
+        g_free (session_id);
+
+        return TRUE;
+}
 
 static gboolean
 register_display (GdmDisplay *display)
@@ -1219,6 +1347,8 @@ register_display (GdmDisplay *display)
                           G_CALLBACK (handle_add_user_authorization), display);
         g_signal_connect (display->priv->display_skeleton, "handle-remove-user-authorization",
                           G_CALLBACK (handle_remove_user_authorization), display);
+        g_signal_connect (display->priv->display_skeleton, "handle-connect-to-slave",
+                          G_CALLBACK (handle_connect_to_slave), display);
 
         g_dbus_object_skeleton_add_interface (display->priv->object_skeleton,
                                               G_DBUS_INTERFACE_SKELETON (display->priv->display_skeleton));
@@ -1236,14 +1366,21 @@ gdm_display_constructor (GType                  type,
                          GObjectConstructParam *construct_properties)
 {
         GdmDisplay      *display;
+        char            *canonical_display_name;
         gboolean         res;
 
         display = GDM_DISPLAY (G_OBJECT_CLASS (gdm_display_parent_class)->constructor (type,
                                                                                        n_construct_properties,
                                                                                        construct_properties));
 
+        canonical_display_name = g_strdelimit (g_strdup (display->priv->x11_display_name),
+                                               ":" G_STR_DELIMITERS, '_');
+
         g_free (display->priv->id);
-        display->priv->id = g_strdup_printf ("/org/gnome/DisplayManager/Displays/%u", get_next_display_serial ());
+        display->priv->id = g_strdup_printf ("/org/gnome/DisplayManager/Displays/%s",
+                                             canonical_display_name);
+
+        g_free (canonical_display_name);
 
         res = register_display (display);
         if (! res) {

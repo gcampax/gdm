@@ -247,7 +247,7 @@ main (int   argc,
 
         do {
                 g_debug ("creating instance of GdmSessionDirect object...");
-                session = gdm_session_direct_new ("/org/gnome/DisplayManager/Displays/1",
+                session = gdm_session_direct_new ("/org/gnome/DisplayManager/Displays/_0",
                                                   ":0",
                                                   g_get_host_name (),
                                                   ttyname (STDIN_FILENO),

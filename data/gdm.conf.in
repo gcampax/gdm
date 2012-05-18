@@ -24,6 +24,11 @@
     <allow send_destination="org.gnome.DisplayManager"
            send_interface="org.freedesktop.DBus.Introspectable"/>
 
+    <!-- root can request private connections to everyone
+         (as long as they implement the interface, that is) -->
+    <allow send_interface="org.gnome.DisplayManager.Slave"
+	   send_member="GetPrivateConnection"/>
+
   </policy>
 
   <policy context="default">
@@ -43,6 +48,8 @@
           send_interface="org.freedesktop.DBus.Properties" />
     <allow send_destination="org.gnome.DisplayManager"
            send_interface="org.freedesktop.DBus.Introspectable"/>
+    <allow send_destination="org.gnome.DisplayManager"
+	   send_interface="org.freedesktop.DBus.ObjectManager"/>
 
     <allow send_destination="org.gnome.DisplayManager"
            send_interface="org.gnome.DisplayManager.Display"
@@ -62,15 +69,13 @@
     <allow send_destination="org.gnome.DisplayManager"
            send_interface="org.gnome.DisplayManager.Display"
            send_member="IsLocal"/>
+    <allow send_destination="org.gnome.DisplayManager"
+	   send_interface="org.gnome.DisplayManager.Display"
+	   send_member="ConnectToSlave"/>
 
     <allow send_destination="org.gnome.DisplayManager"
            send_interface="org.gnome.DisplayManager.LocalDisplayFactory"
            send_member="CreateTransientDisplay"/>
-
-    <allow send_destination="org.gnome.DisplayManager"
-           send_interface="org.gnome.DisplayManager.Manager"
-           send_member="GetDisplays"/>
-
   </policy>
 
   <policy user="@GDM_USERNAME@">

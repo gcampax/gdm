@@ -92,6 +92,7 @@
     </method>
     <method name="SessionStarted">
       <arg name="service_name" direction="in" type="s"/>
+      <arg name="session_id" direction="in" type="s"/>
       <arg name="pid" direction="in" type="i"/>
     </method>
     <method name="SessionStartFailed">

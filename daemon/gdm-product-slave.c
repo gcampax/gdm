@@ -93,10 +93,17 @@ relay_session_started (GdmProductSlave *slave,
                        const char      *service_name,
                        int              pid)
 {
+        char *session_id;
+
+        session_id = gdm_session_direct_get_session_id (slave->priv->session);
+
         gdm_dbus_session_call_session_started_sync (slave->priv->session_relay,
                                                     service_name,
+                                                    session_id ? session_id : "",
                                                     pid,
                                                     NULL, NULL);
+
+        g_free (session_id);
 }
 
 static void

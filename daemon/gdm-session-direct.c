@@ -70,8 +70,6 @@ enum {
         SERVICE_UNAVAILABLE,
         SETUP_COMPLETE,
         SETUP_FAILED,
-        RESET_COMPLETE,
-        RESET_FAILED,
         AUTHENTICATED,
         AUTHENTICATION_FAILED,
         AUTHORIZED,
@@ -106,6 +104,7 @@ typedef struct
         GDBusConnection     *worker_connection;
         GDBusMethodInvocation *pending_invocation;
         GdmDBusSession      *worker_skeleton;
+        char                *session_id;
         guint32              is_stopping : 1;
 } GdmSessionConversation;
 
@@ -752,6 +751,7 @@ static gboolean
 gdm_session_direct_handle_session_started (GdmDBusSession        *skeleton,
                                            GDBusMethodInvocation *invocation,
                                            const char            *service_name,
+                                           const char            *session_id,
                                            int                    pid,
                                            GdmSessionDirect      *session)
 {
@@ -760,6 +760,13 @@ gdm_session_direct_handle_session_started (GdmDBusSession        *skeleton,
         g_dbus_method_invocation_return_value (invocation, NULL);
 
         conversation = find_conversation_by_name (session, service_name);
+
+        g_free (conversation->session_id);
+        if (session_id && *session_id)
+                conversation->session_id = g_strdup (session_id);
+        else
+                conversation->session_id = NULL;
+
         session->priv->session_pid = pid;
         session->priv->session_conversation = conversation;
 
@@ -1472,6 +1479,26 @@ gdm_session_direct_setup (GdmSessionDirect *session,
         gdm_session_direct_defaults_changed (session);
 }
 
+typedef struct {
+        GdmSessionDirect *instance;
+        char             *service_name;
+} SetupForUserClosure;
+
+static gboolean
+emit_setup_complete (gpointer data)
+{
+        SetupForUserClosure *closure = data;
+
+        g_signal_emit (closure->instance, signals[SETUP_COMPLETE], 0, closure->service_name);
+
+        g_free (closure->service_name);
+        g_object_unref (closure->instance);
+
+        g_slice_free (SetupForUserClosure, data);
+
+        return G_SOURCE_REMOVE;
+}
+
 void
 gdm_session_direct_setup_for_user (GdmSessionDirect *session,
                                    const char       *service_name,
@@ -1480,10 +1507,23 @@ gdm_session_direct_setup_for_user (GdmSessionDirect *session,
         g_return_if_fail (session != NULL);
         g_return_if_fail (username != NULL);
 
-        gdm_session_direct_select_user (session, username);
+        if (session->priv->session_conversation != NULL &&
+            g_strcmp0 (session->priv->session_conversation->service_name, service_name) == 0) {
+                SetupForUserClosure *closure;
 
-        send_setup_for_user (session, service_name);
-        gdm_session_direct_defaults_changed (session);
+                g_warn_if_fail (g_strcmp0 (session->priv->selected_user, username) == 0);
+
+                closure = g_slice_new (SetupForUserClosure);
+                closure->instance = g_object_ref (session);
+                closure->service_name = g_strdup (service_name);
+
+                g_idle_add (emit_setup_complete, closure);
+        } else {
+                gdm_session_direct_select_user (session, username);
+
+                send_setup_for_user (session, service_name);
+                gdm_session_direct_defaults_changed (session);
+        }
 }
 
 void
@@ -1879,6 +1919,20 @@ gdm_session_direct_get_display_seat_id (GdmSessionDirect *session)
 
         return g_strdup (session->priv->display_seat_id);
 }
+
+char *
+gdm_session_direct_get_session_id (GdmSessionDirect *session)
+{
+        GdmSessionConversation *conversation;
+
+        g_return_val_if_fail (session != NULL, NULL);
+
+        conversation = session->priv->session_conversation;
+        if (conversation == NULL)
+                return NULL;
+
+        return g_strdup (conversation->session_id);
+}        
 
 gboolean
 gdm_session_direct_bypasses_xsession (GdmSessionDirect *session_direct)
@@ -2638,42 +2692,4 @@ gdm_session_direct_new (const char *display_id,
                                 NULL);
 
         return session;
-}
-
-gboolean
-gdm_session_direct_restart (GdmSessionDirect *session,
-                            GError          **error)
-{
-        gboolean ret;
-
-        ret = TRUE;
-        g_debug ("GdmSessionDirect: Request to restart session");
-
-        return ret;
-}
-
-gboolean
-gdm_session_direct_stop (GdmSessionDirect *session,
-                         GError          **error)
-{
-        gboolean ret;
-
-        ret = TRUE;
-
-        g_debug ("GdmSessionDirect: Request to stop session");
-
-        return ret;
-}
-
-gboolean
-gdm_session_direct_detach (GdmSessionDirect *session,
-                           GError          **error)
-{
-        gboolean ret;
-
-        ret = TRUE;
-
-        g_debug ("GdmSessionDirect: Request to detach session");
-
-        return ret;
 }

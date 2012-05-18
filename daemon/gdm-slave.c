@@ -76,6 +76,8 @@
 #define GDM_DBUS_NAME              "org.gnome.DisplayManager"
 #define GDM_DBUS_DISPLAY_INTERFACE "org.gnome.DisplayManager.Display"
 
+#define GDM_SLAVE_PATH "/org/gnome/DisplayManager/Slave"
+
 #define MAX_CONNECT_ATTEMPTS 10
 
 struct GdmSlavePrivate
@@ -131,6 +133,17 @@ static void     gdm_slave_finalize      (GObject       *object);
 G_DEFINE_ABSTRACT_TYPE (GdmSlave, gdm_slave, G_TYPE_OBJECT)
 
 #define CURSOR_WATCH XC_watch
+
+GQuark
+gdm_slave_error_quark (void)
+{
+        static GQuark ret = 0;
+        if (ret == 0) {
+                ret = g_quark_from_static_string ("gdm-slave-error-quark");
+        }
+
+        return ret;
+}
 
 static void
 gdm_slave_whack_temp_auth_file (GdmSlave *slave)
@@ -1801,6 +1814,42 @@ gdm_slave_get_property (GObject    *object,
 }
 
 static gboolean
+handle_get_private_connection (GdmDBusSlave          *skeleton,
+                               GDBusMethodInvocation *invocation,
+                               const char            *session_id,
+                               GdmSlave              *slave)
+{
+        GError *local_error;
+        GdmSlaveClass *klass;
+        char *address;
+
+        klass = GDM_SLAVE_GET_CLASS (slave);
+        if (!klass->get_private_connection) {
+                g_dbus_method_invocation_return_dbus_error (invocation,
+                                                            "org.gnome.DisplayManager.Slave.Unsupported",
+                                                            "Connections to the slave are not supported by this slave");
+                return TRUE;
+        }
+
+        local_error = NULL;
+        address = NULL;
+        if (!klass->get_private_connection (slave,
+                                            session_id,
+                                            &address,
+                                            &local_error)) {
+                g_dbus_method_invocation_return_gerror (invocation,
+                                                        local_error);
+                g_error_free (local_error);
+                return TRUE;
+        }
+
+        gdm_dbus_slave_complete_get_private_connection (skeleton, invocation, address);
+
+        g_free (address);
+        return TRUE;
+}
+
+static gboolean
 register_slave (GdmSlave *slave)
 {
         GError *error;
@@ -1814,6 +1863,10 @@ register_slave (GdmSlave *slave)
         }
 
         slave->priv->skeleton = GDM_DBUS_SLAVE (gdm_dbus_slave_skeleton_new ());
+
+        g_signal_connect (slave->priv->skeleton, "handle-get-private-connection",
+                          G_CALLBACK (handle_get_private_connection), slave);
+
         gdm_slave_export_interface (slave,
                                     G_DBUS_INTERFACE_SKELETON (slave->priv->skeleton));
 
@@ -1974,6 +2027,6 @@ gdm_slave_export_interface (GdmSlave               *slave,
 {
         g_dbus_interface_skeleton_export (interface,
                                           slave->priv->connection,
-                                          slave->priv->id,
+                                          GDM_SLAVE_PATH,
                                           NULL);
 }

@@ -113,6 +113,22 @@ gdm-xdmcp-chooser-slave-glue.c gdm-xdmcp-chooser-slave-glue.h: gdm-xdmcp-chooser
 
 noinst_PROGRAMS = 		\
 	test-session		\
+	test-external-greeter	\
+	$(NULL)
+
+test_external_greeter_SOURCES = \
+	test-external-greeter.c	\
+	$(NULL)
+
+nodist_test_external_greeter_SOURCES =	\
+	gdm-display-glue.h		\
+	gdm-display-glue.c		\
+	gdm-greeter-glue.h		\
+	gdm-greeter-glue.c		\
+	$(NULL)
+
+test_external_greeter_LDADD =	\
+	$(DAEMON_LIBS)		\
 	$(NULL)
 
 test_session_SOURCES = 		\
@@ -416,6 +432,8 @@ gdm_binary_SOURCES = 			\
 	gdm-manager.h			\
 	gdm-slave-proxy.c		\
 	gdm-slave-proxy.h		\
+	gdm-dbus-util.c			\
+	gdm-dbus-util.h			\
 	$(NULL)
 
 nodist_gdm_binary_SOURCES = 			\
@@ -429,6 +447,8 @@ nodist_gdm_binary_SOURCES = 			\
 	gdm-transient-display-glue.c		\
 	gdm-static-display-glue.h		\
 	gdm-static-display-glue.c		\
+	gdm-slave-glue.h			\
+	gdm-slave-glue.c			\
 	$(NULL)
 
 XDMCP_SOURCES =				\

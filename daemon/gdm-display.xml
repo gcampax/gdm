@@ -43,5 +43,8 @@
       <arg name="username" direction="out" type="s"/>
       <arg name="delay" direction="out" type="i"/>
     </method>
+    <method name="ConnectToSlave">
+      <arg name="address" direction="out" type="s"/>
+    </method>
   </interface>
 </node>

@@ -172,16 +172,6 @@ gdm_greeter_server_problem (GdmGreeterServer *greeter_server,
 }
 
 gboolean
-gdm_greeter_server_authentication_failed (GdmGreeterServer *greeter_server,
-                                          const char       *service_name)
-{
-        service_name = translate_outgoing_service_name (greeter_server, service_name);
-        gdm_dbus_greeter_server_emit_authentication_failed (greeter_server->priv->skeleton,
-                                                            service_name);
-        return TRUE;
-}
-
-gboolean
 gdm_greeter_server_service_unavailable (GdmGreeterServer *greeter_server,
                                         const char       *service_name)
 {
@@ -423,18 +413,6 @@ handle_cancel (GdmDBusGreeterServer  *skeleton,
 }
 
 static gboolean
-handle_disconnect (GdmDBusGreeterServer  *skeleton,
-                   GDBusMethodInvocation *invocation,
-                   GdmGreeterServer      *greeter_server)
-{
-        g_dbus_method_invocation_return_value (invocation, NULL);
-
-        g_signal_emit (greeter_server, signals [DISCONNECTED], 0);
-
-        return TRUE;
-}
-
-static gboolean
 handle_get_display_id (GdmDBusGreeterServer  *skeleton,
                        GDBusMethodInvocation *invocation,
                        GdmGreeterServer      *greeter_server)
@@ -480,6 +458,8 @@ connection_closed (GDBusConnection *connection,
                  remote_peer_vanished ? "yes" : "no");
 
         g_clear_object(&greeter_server->priv->greeter_connection);
+
+        g_signal_emit (greeter_server, signals [DISCONNECTED], 0);
 }
 
 static gboolean
@@ -541,8 +521,6 @@ handle_connection (GDBusServer      *server,
                                   G_CALLBACK (handle_select_user), greeter_server);
                 g_signal_connect (greeter_server->priv->skeleton, "handle-cancel",
                                   G_CALLBACK (handle_cancel), greeter_server);
-                g_signal_connect (greeter_server->priv->skeleton, "handle-disconnect",
-                                  G_CALLBACK (handle_disconnect), greeter_server);
                 g_signal_connect (greeter_server->priv->skeleton, "handle-get-display-id",
                                   G_CALLBACK (handle_get_display_id), greeter_server);
                 g_signal_connect (greeter_server->priv->skeleton, "handle-start-session-when-ready",
@@ -562,7 +540,8 @@ handle_connection (GDBusServer      *server,
 }
 
 gboolean
-gdm_greeter_server_start (GdmGreeterServer *greeter_server)
+gdm_greeter_server_start (GdmGreeterServer *greeter_server,
+                          gboolean          allow_any_user)
 {
         GError *error = NULL;
         gboolean ret;
@@ -572,14 +551,18 @@ gdm_greeter_server_start (GdmGreeterServer *greeter_server)
 
         g_debug ("GreeterServer: Creating D-Bus server for greeter");
 
-        observer = g_dbus_auth_observer_new ();
-        g_signal_connect_object (observer, "authorize-authenticated-peer",
-                                 G_CALLBACK (allow_user_function), greeter_server, 0);
+        observer = NULL;
+        if (!allow_any_user) {
+                observer = g_dbus_auth_observer_new ();
+                g_signal_connect_object (observer, "authorize-authenticated-peer",
+                                         G_CALLBACK (allow_user_function), greeter_server, 0);
+        }
 
         greeter_server->priv->server = gdm_dbus_setup_private_server (observer,
                                                                       &error);
 
-        g_object_unref (observer);
+        if (observer)
+                g_object_unref (observer);
 
         if (greeter_server->priv->server == NULL) {
                 g_warning ("Cannot create D-BUS server for the greeter: %s", error->message);
@@ -607,8 +590,10 @@ gdm_greeter_server_stop (GdmGreeterServer *greeter_server)
 {
         g_debug ("GreeterServer: Stopping greeter server...");
 
-        g_dbus_server_stop (greeter_server->priv->server);
-        g_clear_object (&greeter_server->priv->server);
+        if (greeter_server->priv->server) {
+                g_dbus_server_stop (greeter_server->priv->server);
+                g_clear_object (&greeter_server->priv->server);
+        }
 
         g_clear_object (&greeter_server->priv->greeter_connection);
         g_clear_object (&greeter_server->priv->skeleton);

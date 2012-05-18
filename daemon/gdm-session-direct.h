@@ -58,58 +58,52 @@ GdmSessionDirect * gdm_session_direct_new                      (const char *disp
 char             * gdm_session_direct_get_username             (GdmSessionDirect     *session_direct);
 char             * gdm_session_direct_get_display_device       (GdmSessionDirect     *session_direct);
 char             * gdm_session_direct_get_display_seat_id      (GdmSessionDirect     *session_direct);
+char             * gdm_session_direct_get_session_id           (GdmSessionDirect     *session_direct);
+
 gboolean           gdm_session_direct_bypasses_xsession        (GdmSessionDirect     *session_direct);
 
-/* Exported methods */
-gboolean           gdm_session_direct_restart                  (GdmSessionDirect     *session_direct,
-                                                                GError              **error);
-gboolean           gdm_session_direct_stop                     (GdmSessionDirect     *session_direct,
-                                                                GError              **error);
-gboolean           gdm_session_direct_detach                   (GdmSessionDirect     *session_direct,
-                                                                GError              **error);
-
 void     gdm_session_direct_start_conversation          (GdmSessionDirect *session_direct,
-                                                         const char *service_name);
+                                                         const char       *service_name);
 void     gdm_session_direct_stop_conversation           (GdmSessionDirect *session_direct,
-                                                         const char *service_name);
+                                                         const char       *service_name);
 void     gdm_session_direct_setup                       (GdmSessionDirect *session_direct,
-                                                         const char *service_name);
+                                                         const char       *service_name);
 void     gdm_session_direct_setup_for_user              (GdmSessionDirect *session_direct,
-                                                         const char *service_name,
-                                                         const char *username);
+                                                         const char       *service_name,
+                                                         const char       *username);
 void     gdm_session_direct_setup_for_program           (GdmSessionDirect *session_direct,
-                                                         const char *service_name,
-                                                         const char *log_file);
+                                                         const char       *service_name,
+                                                         const char       *log_file);
 void     gdm_session_direct_set_environment_variable    (GdmSessionDirect *session_direct,
-                                                         const char *key,
-                                                         const char *value);
+                                                         const char       *key,
+                                                         const char       *value);
 void     gdm_session_direct_reset                       (GdmSessionDirect *session_direct);
 void     gdm_session_direct_authenticate                (GdmSessionDirect *session_direct,
-                                                         const char *service_name);
+                                                         const char       *service_name);
 void     gdm_session_direct_authorize                   (GdmSessionDirect *session_direct,
-                                                         const char *service_name);
+                                                         const char       *service_name);
 void     gdm_session_direct_accredit                    (GdmSessionDirect *session_direct,
-                                                         const char *service_name,
-                                                         gboolean    refresh);
+                                                         const char       *service_name,
+                                                         gboolean          refresh);
 void     gdm_session_direct_open_session                (GdmSessionDirect *session_direct,
-                                                                const char *service_name);
+                                                         const char       *service_name);
 void     gdm_session_direct_start_session               (GdmSessionDirect *session_direct,
-                                                                const char *service_name);
+                                                         const char       *service_name);
 void     gdm_session_direct_close                       (GdmSessionDirect *session_direct);
 
 void     gdm_session_direct_answer_query                (GdmSessionDirect *session_direct,
-                                                         const char *service_name,
-                                                         const char *text);
+                                                         const char       *service_name,
+                                                         const char       *text);
 void     gdm_session_direct_select_program              (GdmSessionDirect *session_direct,
-                                                         const char *command_line);
+                                                         const char       *command_line);
 void     gdm_session_direct_select_session_type         (GdmSessionDirect *session_direct,
-                                                         const char *session_direct_type);
+                                                         const char       *session_direct_type);
 void     gdm_session_direct_select_session              (GdmSessionDirect *session_direct,
-                                                         const char *session_direct_name);
+                                                         const char       *session_direct_name);
 void     gdm_session_direct_select_language             (GdmSessionDirect *session_direct,
-                                                         const char *language);
+                                                         const char       *language);
 void     gdm_session_direct_select_user                 (GdmSessionDirect *session_direct,
-                                                         const char *username);
+                                                         const char       *username);
 void     gdm_session_direct_cancel                      (GdmSessionDirect *session_direct);
 
 
