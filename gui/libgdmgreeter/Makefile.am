@@ -1,11 +1,30 @@
 END_OF_LIST =
 
-BUILT_SOURCES = $(END_OF_LIST)
-CLEANFILES = $(END_OF_LIST)
+BUILT_SOURCES = gdm-greeter-server.h gdm-display-glue.h
+CLEANFILES = 			\
+	$(BUILT_SOURCES)	\
+	gdm-display-glue.c	\
+	$(END_OF_LIST)
+
+gdm-greeter-server.c gdm-greeter-server.h : $(top_srcdir)/daemon/gdm-greeter-server.xml Makefile.am
+	$(AM_V_GEN)gdbus-codegen 					\
+		--interface-prefix=org.gnome.DisplayManager		\
+		--generate-c-code=gdm-greeter-server			\
+		--annotate "org.gnome.DisplayManager.GreeterServer"	\
+			   "org.gtk.GDBus.C.Name" GdmGreeterServer	\
+		$(top_srcdir)/daemon/gdm-greeter-server.xml
+
+gdm-display-glue.c gdm-display-glue.h : $(top_srcdir)/daemon/gdm-display.xml Makefile.am
+	$(AM_V_GEN)gdbus-codegen 					\
+		--c-namespace GdmDBus					\
+		--interface-prefix=org.gnome.DisplayManager		\
+		--generate-c-code=gdm-display-glue			\
+		$(top_srcdir)/daemon/gdm-display.xml
 
 AM_CPPFLAGS = \
         -I.                                                                   \
         -I..                                                                  \
+	-I$(srcdir)                                                           \
         -DG_LOG_DOMAIN=\"GdmGreeter\"                                         \
         -DDMCONFDIR=\""$(dmconfdir)"\"                                        \
         -DDATADIR=\""$(datadir)"\"                                            \
@@ -17,7 +36,8 @@ lib_LTLIBRARIES =                                                             \
 
 libgdmgreeterdir = $(includedir)/gdm/greeter
 libgdmgreeter_HEADERS =                                                       \
-        gdm-greeter-client.h                                                  \
+        gdm-greeter-util.h                                                    \
+	gdm-greeter-server.h                                                  \
         gdm-greeter-sessions.h                                                \
         $(END_OF_LIST)
 
@@ -36,9 +56,15 @@ libgdmgreeter_la_LIBADD =                                                     \
 
 libgdmgreeter_la_SOURCES =                                                    \
         $(libgdmgreeter_HEADERS)                                              \
-        gdm-greeter-client.c                                                  \
+	gdm-greeter-server.c                                                  \
+        gdm-greeter-util.c                                                    \
         gdm-greeter-sessions.c                                                \
         $(END_OF_LIST)
+
+nodist_libgdmgreeter_la_SOURCES = 	\
+	gdm-display-glue.c		\
+	gdm-display-glue.h		\
+	$(END_OF_LIST)
 
 pkgconfigdir = $(libdir)/pkgconfig
 dist_pkgconfig_DATA = gdmgreeter.pc
@@ -62,6 +88,7 @@ GdmGreeter_1_0_gir_SCANNERFLAGS =                                        \
         --warn-all                                                            \
         --namespace=GdmGreeter                                                \
         --identifier-prefix GdmGreeter                                        \
+	$(AM_CPPFLAGS)                                                        \
         $(libgdmgreeter_la_CFLAGS)                                            \
         $(END_OF_LIST)
 
@@ -69,7 +96,6 @@ GdmGreeter_1_0_gir_INCLUDES = $(LIBGDMGREETER_GIR_INCLUDES)
 GdmGreeter_1_0_gir_LIBS = libgdmgreeter.la
 GdmGreeter_1_0_gir_FILES =                                                    \
         $(filter-out %-private.h, $(libgdmgreeter_la_SOURCES))                \
-        $(BUILT_SOURCES)                                                      \
         $(END_OF_LIST)
 
 CLEANFILES += $(gir_DATA) $(typelibs_DATA)

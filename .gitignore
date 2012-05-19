@@ -131,6 +131,10 @@ docs/gdm-oc.omf
 docs/gdm-ru.omf
 docs/gdm-sv.omf
 docs/gdm-uk.omf
+gui/libgdmgreeter/gdm-display-glue.c
+gui/libgdmgreeter/gdm-display-glue.h
+gui/libgdmgreeter/gdm-greeter-server.c
+gui/libgdmgreeter/gdm-greeter-server.h
 gui/simple-chooser/gdm-host-chooser
 gui/simple-chooser/gdm-simple-chooser
 gui/simple-greeter/gdm-simple-greeter

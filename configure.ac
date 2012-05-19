@@ -19,7 +19,7 @@ AM_PROG_CC_C_O
 AC_PROG_LIBTOOL()
 
 ## increment if the plugin interface has additions, changes, removals.
-LT_CURRENT=1
+LT_CURRENT=2
 
 ## increment any time the source changes; set to
 ##  0 if you increment CURRENT
@@ -182,12 +182,9 @@ PKG_CHECK_MODULES(CHECK,
                   have_check=no)
 AM_CONDITIONAL([HAVE_CHECK],[test "x$CHECK_CFLAGS" != "x"])
 
-LIBGDMGREETER_LIBS="$SIMPLE_GREETER_LIBS"
-AC_SUBST(LIBGDMGREETER_LIBS)
-LIBGDMGREETER_CFLAGS="$SIMPLE_GREETER_CFLAGS"
-AC_SUBST(LIBGDMGREETER_CFLAGS)
+PKG_CHECK_MODULES(LIBGDMGREETER, glib-2.0 gio-2.0 gio-unix-2.0);
 GOBJECT_INTROSPECTION_CHECK([0.9.12])
-LIBGDMGREETER_GIR_INCLUDES="GLib-2.0 GObject-2.0 DBusGLib-1.0"
+LIBGDMGREETER_GIR_INCLUDES="GLib-2.0 GObject-2.0 Gio-2.0"
 AC_SUBST(LIBGDMGREETER_GIR_INCLUDES)
 
 dnl ---------------------------------------------------------------------------
